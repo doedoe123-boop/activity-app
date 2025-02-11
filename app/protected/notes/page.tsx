@@ -1,20 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/utils/supabase/client";
+
+const supabase = createClient();
 
 export default function MarkdownNotesApp() {
   const [note, setNote] = useState<string>("");
   const [notes, setNotes] = useState<{ id: string; content: string }[]>([]);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const handleSave = () => {
-    if (note.trim()) {
-      const newNote = { id: Date.now().toString(), content: note };
-      setNotes([...notes, newNote]);
-      setNote(""); 
+  useEffect(() => {
+    async function fetchUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user);
+    }
+
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    async function fetchNotes() {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error fetching notes:", error.message);
+        return;
+      }
+
+      setNotes(data || []);
+    }
+
+    fetchNotes();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (note.trim() && user) {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("notes")
+        .insert([{ content: note, user_id: user.id }])
+        .select();
+
+      setIsLoading(false);
+
+      if (error) {
+        console.error("Error saving note:", error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setNotes([...notes, data[0]]);
+        setNote("");
+      }
     }
   };
 
@@ -24,20 +72,45 @@ export default function MarkdownNotesApp() {
     setIsEditing(true);
   };
 
-  const handleUpdate = () => {
-    if (currentNoteId) {
-      setNotes(notes.map((n) =>
-        n.id === currentNoteId ? { ...n, content: note } : n
-      ));
-      setNote(""); 
-      setIsEditing(false);
-      setCurrentNoteId(null); 
+  const handleUpdate = async () => {
+    if (currentNoteId && user) {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("notes")
+        .update({ content: note })
+        .match({ id: currentNoteId, user_id: user.id })
+        .select();
+
+      setIsLoading(false);
+
+      if (error) {
+        console.error("Error updating note:", error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setNotes(notes.map((n) => (n.id === currentNoteId ? { ...n, content: note } : n)));
+        setNote("");
+        setIsEditing(false);
+        setCurrentNoteId(null);
+      }
     }
   };
-  
 
-  const handleDelete = (id: string) => {
-    setNotes(notes.filter(note => note.id !== id));
+  const handleDelete = async (id: string) => {
+    if (user && confirm("Are you sure you want to delete this note?")) {
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .match({ id, user_id: user.id });
+
+      if (error) {
+        console.error("Error deleting note:", error.message);
+        return;
+      }
+
+      setNotes(notes.filter((note) => note.id !== id));
+    }
   };
 
   return (
@@ -52,8 +125,8 @@ export default function MarkdownNotesApp() {
           placeholder="Type your note in Markdown"
           rows={10}
         />
-        <Button onClick={isEditing ? handleUpdate : handleSave}>
-          {isEditing ? "Update Note" : "Save Note"}
+        <Button onClick={isEditing ? handleUpdate : handleSave} disabled={isLoading}>
+          {isEditing ? "Update Note" : isLoading ? "Saving..." : "Save Note"}
         </Button>
       </div>
 
@@ -63,13 +136,14 @@ export default function MarkdownNotesApp() {
           <li key={note.id} className="mb-4">
             <h3 className="text-lg font-semibold">Note {note.id}</h3>
             <div className="prose max-w-full">
-              {/* Render Markdown Preview */}
               <ReactMarkdown>{note.content}</ReactMarkdown>
             </div>
 
             <div className="mt-2 flex space-x-4">
               <Button onClick={() => handleEdit(note.id, note.content)}>Edit</Button>
-              <Button onClick={() => handleDelete(note.id)} variant="destructive">Delete</Button>
+              <Button onClick={() => handleDelete(note.id)} variant="destructive">
+                Delete
+              </Button>
             </div>
 
             <div className="mt-6">
