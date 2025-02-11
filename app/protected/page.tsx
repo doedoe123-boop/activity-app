@@ -47,7 +47,7 @@ export default async function ProtectedPage() {
       title: "Activity 5: Markdown Notes App",
       description: "A notes application that supports Markdown. Users can create, read, update, and delete notes, with raw and preview views.",
       icon: <FileText className="w-6 h-6" />,
-      link: "/markdown-notes",
+      link: "/protected/notes",
       gradient: "from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700"
     }
   ];
