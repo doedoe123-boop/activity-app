@@ -40,7 +40,7 @@ export default async function ProtectedPage() {
       title: "Activity 4: Pokemon Review App",
       description: "An app for searching Pokemon and adding reviews. Users can perform CRUD operations on reviews and sort them.",
       icon: <Star className="w-6 h-6" />,
-      link: "/pokemon-review",
+      link: "/protected/pokemon",
       gradient: "from-yellow-400 to-orange-500 dark:from-yellow-600 dark:to-orange-700"
     },
     {

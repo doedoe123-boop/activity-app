@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 const supabase = createClient();
 
-type Food = {
+type Pokemon = {
   id: string;
   user_id: string;
   name: string;
@@ -16,13 +16,13 @@ type Food = {
   file_path: string;
 };
 
-export default function FoodGallery() {
-  const [foods, setFoods] = useState<Food[]>([]);
+export default function PokemonGallery() {
+  const [pokemons, setPokemon] = useState<Pokemon[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [loadingUpload, setLoadingUpload] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [editingFood, setEditingFood] = useState<Food | null>(null);
-  const [foodName, setFoodName] = useState<string>(""); 
+  const [editingPokemon, setEditingPokemon] = useState<Pokemon | null>(null);
+  const [pokemonName, setPokemonName] = useState<string>(""); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -38,48 +38,48 @@ export default function FoodGallery() {
   }, []);
 
   useEffect(() => {
-    async function fetchFoods() {
+    async function fetchPokemons() {
       const { data, error } = await supabase
-        .from("food")
-        .select("id, food_name, file_path, uploaded_at, user_id")
+        .from("pokemon_photos")
+        .select("id, photo_name, file_path, uploaded_at, user_id")
         .order("uploaded_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching food:", error.message);
+        console.error("Error fetching pokemon:", error.message);
         return;
       }
 
-      const urls = data.map((food) => {
-        const { data: publicUrlData } = supabase.storage.from("photos").getPublicUrl(food.file_path);
+      const urls = data.map((pokemon) => {
+        const { data: publicUrlData } = supabase.storage.from("photos").getPublicUrl(pokemon.file_path);
         return {
-          id: food.id,
-          name: food.food_name,
-          uploaded_at: format(new Date(food.uploaded_at), "yyyy-MM-dd HH:mm"),
+          id: pokemon.id,
+          name: pokemon.photo_name,
+          uploaded_at: format(new Date(pokemon.uploaded_at), "yyyy-MM-dd HH:mm"),
           url: publicUrlData?.publicUrl || "",
-          file_path: food.file_path,
-          user_id: food.user_id,
+          file_path: pokemon.file_path,
+          user_id: pokemon.user_id,
         };
       });
 
-      setFoods(urls);
+      setPokemon(urls);
     }
 
-    fetchFoods();
+    fetchPokemons();
   }, []);
 
-  const sortFoods = (criteria: "name" | "date", order: "asc" | "desc") => {
-    const sortedFoods = [...foods].sort((a, b) => {
+  const sortPokemons = (criteria: "name" | "date", order: "asc" | "desc") => {
+    const sortedPokemons = [...pokemons].sort((a, b) => {
       if (criteria === "name") {
         return order === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
       } else {
         return order === "asc" ? new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime() : new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime();
       }
     });
-    setFoods(sortedFoods);
+    setPokemon(sortedPokemons);
   };
 
   useEffect(() => {
-    sortFoods(sortCriteria, sortOrder);
+    sortPokemons(sortCriteria, sortOrder);
   }, [sortCriteria, sortOrder]);
 
   const handleSortCriteriaChange = (criteria: "name" | "date") => {
@@ -90,7 +90,7 @@ export default function FoodGallery() {
     setSortOrder(order);
   };
 
-  const uploadFood = async () => {
+  const uploadPokemon = async () => {
     if (!file) return;
     setLoadingUpload(true);
     setMessage(null);
@@ -113,8 +113,8 @@ export default function FoodGallery() {
     }
 
     const { data: insertedData, error: insertError } = await supabase
-      .from("food")
-      .insert([{ food_name: file.name, file_path: uniqueName, user_id: userId }])
+      .from("pokemon_photos")
+      .insert([{ photo_name: file.name, file_path: uniqueName, user_id: userId }])
       .select()
       .single();
 
@@ -126,10 +126,10 @@ export default function FoodGallery() {
 
     const { data: publicUrlData } = supabase.storage.from("photos").getPublicUrl(insertedData.file_path);
 
-    setFoods((prev) => [
+    setPokemon((prev) => [
       {
         id: insertedData.id,
-        name: insertedData.food_name,
+        name: insertedData.photo_name,
         uploaded_at: format(new Date(insertedData.uploaded_at), "yyyy-MM-dd HH:mm"),
         url: publicUrlData?.publicUrl || "",
         file_path: insertedData.file_path,
@@ -144,20 +144,20 @@ export default function FoodGallery() {
     setLoadingUpload(false);
   };
 
-  const startEditing = (food: Food) => {
-    setEditingFood(food);
-    setFoodName(food.name);
+  const startEditing = (pokemon: Pokemon) => {
+    setEditingPokemon(pokemon);
+    setPokemonName(pokemon.name);
   };
 
-  const updateFood = async () => {
-    if (!editingFood) return;
+  const updatePokemon = async () => {
+    if (!editingPokemon) return;
     setLoadingUpload(true);
     setMessage(null);
 
-    const updatedData: any = { food_name: foodName };
+    const updatedData: any = { photo_name: pokemonName };
 
     if (file) {
-      const uniqueName = `user-${editingFood.id}-${Date.now()}-${file.name}`;
+      const uniqueName = `user-${editingPokemon.id}-${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage.from("photos").upload(uniqueName, file);
       if (uploadError) {
@@ -170,9 +170,9 @@ export default function FoodGallery() {
     }
 
     const { error } = await supabase
-      .from("food")
+      .from("pokemon_photos")
       .update(updatedData)
-      .eq("id", editingFood.id);
+      .eq("id", editingPokemon.id);
 
     if (error) {
       setMessage("❌ Update failed! Try again.");
@@ -181,33 +181,33 @@ export default function FoodGallery() {
     }
 
     // Fetch updated data
-    const { data: publicUrlData } = supabase.storage.from("photos").getPublicUrl(updatedData.file_path || editingFood.file_path);
+    const { data: publicUrlData } = supabase.storage.from("photos").getPublicUrl(updatedData.file_path || editingPokemon.file_path);
 
-    setFoods((prev) =>
-      prev.map((food) =>
-        food.id === editingFood.id
+    setPokemon((prev) =>
+      prev.map((pokemon) =>
+        pokemon.id === editingPokemon.id
           ? {
-              ...food,
-              name: foodName,
-              url: publicUrlData?.publicUrl || food.url,
-              file_path: updatedData.file_path || food.file_path,
+              ...pokemon,
+              name: pokemonName,
+              url: publicUrlData?.publicUrl || pokemon.url,
+              file_path: updatedData.file_path || pokemon.file_path,
             }
-          : food
+          : pokemon
       )
     );
 
-    setEditingFood(null);
-    setFoodName("");
+    setEditingPokemon(null);
+    setPokemonName("");
     setFile(null);
     setMessage("✅ Update successful!");
     setLoadingUpload(false);
   };
 
-  const deleteFood = async (foodId: string) => {
+  const deletePokemon = async (pokemonId: string) => {
     const { data: reviews, error: reviewsError } = await supabase
-      .from("reviews")
+      .from("pokemon_reviews")
       .select("id")
-      .eq("food_id", foodId);
+      .eq("pokemon_id", pokemonId);
   
     if (reviewsError) {
       setMessage("❌ Failed to check reviews.");
@@ -215,42 +215,42 @@ export default function FoodGallery() {
     }
   
     if (reviews && reviews.length > 0) {
-      setMessage("❌ This food item has reviews and cannot be deleted.");
+      setMessage("❌ This pokemon item has reviews and cannot be deleted.");
       return;
     }
   
-    const isConfirmed = window.confirm("Are you sure you want to delete this food item?");
+    const isConfirmed = window.confirm("Are you sure you want to delete this pokemon item?");
   
     if (!isConfirmed) {
       return;
     }
   
-    const { error } = await supabase.from("food").delete().eq("id", foodId);
+    const { error } = await supabase.from("pokemon_photos").delete().eq("id", pokemonId);
   
     if (error) {
       setMessage("❌ Deletion failed! Try again.");
       return;
     }
   
-    setFoods((prev) => prev.filter((food) => food.id !== foodId));
+    setPokemon((prev) => prev.filter((pokemon) => pokemon.id !== pokemonId));
     setMessage("✅ Deletion successful!");
   };
   
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Food Gallery</h1>
+      <h1 className="text-xl font-bold mb-4">Pokemon Gallery</h1>
       <input
         type="file"
         ref={fileInputRef}
         onChange={(e) => setFile(e.target.files?.[0] || null)}
       />
       <button
-        onClick={uploadFood}
+        onClick={uploadPokemon}
         disabled={loadingUpload}
         className="bg-blue-500 text-white px-4 py-2 mt-2"
       >
-        {loadingUpload ? "Uploading..." : "Upload Food"}
+        {loadingUpload ? "Uploading..." : "Upload Pokemon"}
       </button>
       {message && <p className="mt-2 text-red-500">{message}</p>}
 
@@ -275,29 +275,29 @@ export default function FoodGallery() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        {foods.map((food) => (
-          <div key={food.id} className="border p-2 rounded">
-            <img src={food.url} alt={food.name} className="w-full h-40 object-cover" />
-            <p className="font-semibold mt-2">{food.name}</p>
-            <p className="text-sm text-gray-500">Uploaded: {food.uploaded_at}</p>
+        {pokemons.map((pokemon) => (
+          <div key={pokemon.id} className="border p-2 rounded">
+            <img src={pokemon.url} alt={pokemon.name} className="w-full h-40 object-cover" />
+            <p className="font-semibold mt-2">{pokemon.name}</p>
+            <p className="text-sm text-gray-500">Uploaded: {pokemon.uploaded_at}</p>
             <button
-              onClick={() => router.push(`/protected/food-review/${food.id}`)}
+              onClick={() => router.push(`/protected/pokemon/${pokemon.id}`)}
               className="bg-green-500 text-white px-3 py-1 mt-2 w-full"
             >
               View or Add Review
             </button>
 
             {/* Edit and Delete buttons */}
-            {food.user_id === user?.id && (  
+            {pokemon.user_id === user?.id && (  
             <div className="mt-2">
               <button
-                onClick={() => startEditing(food)}
+                onClick={() => startEditing(pokemon)}
                 className="bg-yellow-500 text-white px-3 py-1"
               >
                 Edit
               </button>
               <button
-                onClick={() => deleteFood(food.id)}
+                onClick={() => deletePokemon(pokemon.id)}
                 className="bg-red-500 text-white px-3 py-1 ml-2"
               >
                 Delete
@@ -308,13 +308,13 @@ export default function FoodGallery() {
         ))}
       </div>
 
-      {editingFood && (
+      {editingPokemon && (
         <div className="mt-4">
-          <h2>Edit Food</h2>
+          <h2>Edit Pokemon</h2>
           <input
             type="text"
-            value={foodName}
-            onChange={(e) => setFoodName(e.target.value)}
+            value={pokemonName}
+            onChange={(e) => setPokemonName(e.target.value)}
             className="border p-2 w-full mt-2"
           />
           <input
@@ -323,10 +323,10 @@ export default function FoodGallery() {
             className="border p-2 mt-2"
           />
           <button
-            onClick={updateFood}
+            onClick={updatePokemon}
             className="bg-blue-500 text-white px-4 py-2 mt-2 w-full"
           >
-            Update Food
+            Update Pokemon
           </button>
         </div>
       )}
